@@ -1,4 +1,4 @@
-# ANIME-neural-network-analyzer
+# ANIME-neural
 just quick test of my neural network analyzer
 
 What this script does:
