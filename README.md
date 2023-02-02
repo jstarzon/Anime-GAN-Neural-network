@@ -1,6 +1,10 @@
 # ANIME-neural
 just quick test of my neural network analyzer
 
+Change this value in Anime-neural.py
+num_epochs = 100
+Higher value, better result. This value changes how much iterations training model does through dataset.
+
 ## What it does
 - Load pictures
 - Train model
