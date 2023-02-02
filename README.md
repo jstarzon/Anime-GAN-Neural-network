@@ -10,4 +10,4 @@ You can put any pictures you want but I decided to put every anime character tha
 Thats why I named it ANIME-Neural-Network :)
 
 
-Thanks for help with debuging [@Mitkins1](https://github.com/Mitkins1) :)
+Thanks for help with debugging [@Mitkins1](https://github.com/Mitkins1) :)
