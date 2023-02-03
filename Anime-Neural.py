@@ -5,20 +5,6 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 
-np.random.seed(42)
-tf.random.set_seed(42)
-
-# Load animu UWU images
-animecutepics = []
-animecutepics_path = 'data/test'
-for filename in os.listdir(animecutepics_path):
-    if filename.endswith(".jpg"):
-        animecutepics.append(plt.imread(os.path.join(animecutepics_path, filename)))
-        print("Loading the pic "+ filename)
-animecutepics = np.array(animecutepics)
-
-# Normalize images
-animecutepics = (animecutepics - 127.5) / 127.5
 
 # Generator model
 def make_generator_model():
@@ -53,55 +39,92 @@ def make_discriminator_model():
     model.add(tf.keras.layers.Dropout(0.3))
     model.add(tf.keras.layers.Flatten())
     model.add(tf.keras.layers.Dense(1, activation='sigmoid'))
+    
     discriminator = tf.keras.Sequential()
 
     return model
 
-# Create the generator and discriminator models
-print("Discriminator model DONE")
-generator = make_generator_model()
-print("Discriminator model DONE")
-discriminator = make_discriminator_model()
 
-# Compile the discriminator model
-print("Discriminator model compiling in progress...")
-discriminator.compile(optimizer=tf.keras.optimizers.Adam(1e-4), loss='binary_crossentropy', metrics=['accuracy'])
+def resume_training(generator, discriminator, gan, model_dir, animecutepics):
+    print("Resuming training from checkpoint:", model_dir)
+    generator.load_weights(os.path.join(model_dir, 'generator_weights.h5'))
+    discriminator.load_weights(os.path.join(model_dir, 'discriminator_weights.h5'))
+    gan.load_weights(os.path.join(model_dir, 'gan_weights.h5'))
+    discriminator.compile(optimizer=tf.keras.optimizers.Adam(1e-4), loss='binary_crossentropy', metrics=['accuracy'])
+    gan.compile(optimizer=tf.keras.optimizers.Adam(1e-4), loss='binary_crossentropy')
+    training_loop(generator, discriminator, gan, model_dir, animecutepics)
 
-# Combine the generator and discriminator into a GAN
-print("Combining.. GAN + Discriminator")
-gan = tf.keras.Sequential([generator, discriminator])
-print("Compiling in progress...")
-gan.compile(optimizer=tf.keras.optimizers.Adam(1e-4), loss='binary_crossentropy')
+def training_loop(generator, discriminator, gan, model_dir, animecutepics):
+    # Train the GAN
+    print("Training...")
+    num_epochs = 100
+    batch_size = 8
+    for epoch in tqdm(range(num_epochs)):
+        idx = np.random.randint(0, animecutepics.shape[0], batch_size)
+        real_images = animecutepics[idx]
+        noise = np.random.normal(0, 1, (batch_size, 100))
+        fake_images = generator.predict(noise)
+        x = np.concatenate([real_images, fake_images])
+        y = np.concatenate([np.ones((batch_size, 1)), np.zeros((batch_size, 1))])
+        d_loss, d_acc = discriminator.train_on_batch(x, y)
 
+        # Train the generator
+        noise = np.random.normal(0, 1, (batch_size, 100))
+        y = np.ones((batch_size, 1))
+        g_loss = gan.train_on_batch(noise, y)
 
-# Train the GAN
-print("Training...")
-num_epochs = 100
-batch_size = 32
-for epoch in tqdm(range(num_epochs)):
-    # Train the discriminator
-    idx = np.random.randint(0, animecutepics .shape[0], batch_size)
-    real_images = animecutepics [idx]
-    noise = np.random.normal(0, 1, (batch_size, 100))
-    fake_images = generator.predict(noise)
-    x = np.concatenate([real_images, fake_images])
-    y = np.concatenate([np.ones((batch_size, 1)), np.zeros((batch_size, 1))])
-    d_loss, d_acc = discriminator.train_on_batch(x, y)
+        # losses
+        if (epoch + 1) % 10 == 0:
+            print("Epoch:", epoch + 1, "Discriminator Loss:", d_loss, "Accuracy:", d_acc, "Generator Loss:", g_loss)
+        if (epoch + 1) % 50 == 0:
+            # Save weights
+            generator.save_weights(os.path.join(model_dir, 'generator_weights.h5'))
+            discriminator.save_weights(os.path.join(model_dir, 'discriminator_weights.h5'))
+            gan.save_weights(os.path.join(model_dir, 'gan_weights.h5'))
 
-    # Train the generator
-    noise = np.random.normal(0, 1, (batch_size, 100))
-    y = np.ones((batch_size, 1))
-    g_loss = gan.train_on_batch(noise, y)
+def main():
+    
+    np.random.seed(42)
+    tf.random.set_seed(42)
+    model_dir = 'models'
+    # Load animu UWU images
+    animecutepics = []
+    animecutepics_path = 'data/cropped28'
+    for filename in os.listdir(animecutepics_path):
+        if filename.endswith(".jpg"):
+            animecutepics.append(plt.imread(os.path.join(animecutepics_path, filename)))
+            print("Loading the pic "+ filename)
+    animecutepics = np.array(animecutepics)
 
-    # Print the losses
-    if (epoch + 1) % 10 == 0:
-        print(f"Epoch: {epoch+1}, Discriminator Loss: {d_loss:.4f}, Discriminator Accuracy: {d_acc:.4f}, Generator Loss: {g_loss:.4f}")
+    # Normalize images
+    animecutepics = (animecutepics - 127.5) / 127.5
+    # Generate the models
+    generator = make_generator_model()
+    discriminator = make_discriminator_model()
 
-# Save the generator model to a file
-generator.save("generator_model.h5")
+    # Compile the models
+    g_optimizer = tf.keras.optimizers.Adam(1e-4)
+    d_optimizer = tf
+    # Create the generator and discriminator models
 
-# Save the discriminator model to a file
-discriminator.save("discriminator_model.h5")
+    print("Discriminator model DONE")
+    generator = make_generator_model()
+    print("Discriminator model DONE")
+    discriminator = make_discriminator_model()
 
-# Save the combined GAN model to a file
-gan.save("gan_model.h5")
+    # Compile the discriminator model
+    print("Discriminator model compiling in progress...")
+    discriminator.compile(optimizer=tf.keras.optimizers.Adam(1e-4), loss='binary_crossentropy', metrics=['accuracy'])
+
+    # Combine the generator and discriminator into a GAN
+    print("Combining.. GAN + Discriminator")
+    gan = tf.keras.Sequential([generator, discriminator])
+    print("Compiling in progress...")
+    gan.compile(optimizer=tf.keras.optimizers.Adam(1e-4), loss='binary_crossentropy')
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
+        training_loop(generator, discriminator, gan, model_dir , animecutepics)
+    else:
+        resume_training(generator, discriminator, gan, model_dir, animecutepics)
+
+main()
