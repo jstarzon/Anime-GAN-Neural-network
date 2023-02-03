@@ -4,7 +4,7 @@ import os
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-
+generated='generated'
 
 # Generator model
 def make_generator_model():
@@ -57,8 +57,8 @@ def resume_training(generator, discriminator, gan, model_dir, animecutepics):
 def training_loop(generator, discriminator, gan, model_dir, animecutepics):
     # Train the GAN
     print("Training...")
-    num_epochs = 100
-    batch_size = 8
+    num_epochs = 10000
+    batch_size = 64
     for epoch in tqdm(range(num_epochs)):
         idx = np.random.randint(0, animecutepics.shape[0], batch_size)
         real_images = animecutepics[idx]
@@ -76,6 +76,9 @@ def training_loop(generator, discriminator, gan, model_dir, animecutepics):
         # losses
         if (epoch + 1) % 10 == 0:
             print("Epoch:", epoch + 1, "Discriminator Loss:", d_loss, "Accuracy:", d_acc, "Generator Loss:", g_loss)
+            plt.imshow(fake_images[0, :, :, :])
+            plt.savefig(os.path.join(generated, str(epoch)+".png"))
+            #plt.show()
         if (epoch + 1) % 50 == 0:
             # Save weights
             generator.save_weights(os.path.join(model_dir, 'generator_weights.h5'))
