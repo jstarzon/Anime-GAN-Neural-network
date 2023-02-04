@@ -9,6 +9,8 @@ Higher value, better result. This value changes how much iterations training mod
 - Load pictures
 - Train model
 - Saves trained model into .h5 file
+- Saves generater pictures into a folder
+- Saves telemetry for each epoch in .csv file
 
 You can put any pictures you want but I decided to put every anime character that exist. 
 Thats why I named it ANIME-Neural-Network :)
