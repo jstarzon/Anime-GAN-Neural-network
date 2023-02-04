@@ -14,6 +14,3 @@ Higher value, better result. This value changes how much iterations training mod
 
 You can put any pictures you want but I decided to put every anime character that exist. 
 Thats why I named it ANIME-Neural-Network :)
-
-
-Thanks for help with debugging Anime-neural.py [@Mitkins1](https://github.com/Mitkins1) :)
