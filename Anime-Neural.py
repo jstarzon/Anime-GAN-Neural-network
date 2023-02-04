@@ -3,6 +3,8 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from csv import writer
+import cv2
 
 generated='generated'
 
@@ -10,24 +12,23 @@ generated='generated'
 def make_generator_model():
     print("Generator model in progress")
     model = tf.keras.Sequential()
-    model.add(tf.keras.layers.Dense(128 * 7 * 7, use_bias=False, input_shape=(100,)))
+    model.add(tf.keras.layers.Dense(64 * 32 * 32, use_bias=False, input_shape=(100,)))
     model.add(tf.keras.layers.BatchNormalization())
     model.add(tf.keras.layers.LeakyReLU())
-    model.add(tf.keras.layers.Reshape((7, 7, 128)))
-    model.add(tf.keras.layers.Conv2DTranspose(128, (5, 5), strides=(1, 1), padding='same', use_bias=False))
+    model.add(tf.keras.layers.Reshape((32, 32, 64)))
+    model.add(tf.keras.layers.Conv2DTranspose(64, (5, 5), strides=(1, 1), padding='same', use_bias=False))
     model.add(tf.keras.layers.BatchNormalization())
     model.add(tf.keras.layers.LeakyReLU())
-    model.add(tf.keras.layers.Conv2DTranspose(64, (5, 5), strides=(2, 2), padding='same', use_bias=False))
+    model.add(tf.keras.layers.Conv2DTranspose(32, (5, 5), strides=(2, 2), padding='same', use_bias=False))
     model.add(tf.keras.layers.BatchNormalization())
     model.add(tf.keras.layers.LeakyReLU())
     model.add(tf.keras.layers.Conv2DTranspose(3, (5, 5), strides=(2, 2), padding='same', use_bias=False, activation='tanh'))
     return model
-
 # Discriminator model
 def make_discriminator_model():
     print("Discriminator model in progress")
     model = tf.keras.Sequential()
-    model.add(tf.keras.layers.Reshape((28 * 28 * 3,), input_shape=(28, 28, 3)))
+    model.add(tf.keras.layers.Reshape((128 * 128 * 3,), input_shape=(128, 128, 3)))
     model.add(tf.keras.layers.Dense(512, activation="relu"))
     model.add(tf.keras.layers.Dropout(0.3))
     model.add(tf.keras.layers.Dense(256, activation="relu"))
@@ -39,10 +40,8 @@ def make_discriminator_model():
     model.add(tf.keras.layers.Dropout(0.3))
     model.add(tf.keras.layers.Flatten())
     model.add(tf.keras.layers.Dense(1, activation='sigmoid'))
-    
-    discriminator = tf.keras.Sequential()
-
     return model
+
 
 
 def resume_training(generator, discriminator, gan, model_dir, animecutepics):
@@ -57,7 +56,7 @@ def resume_training(generator, discriminator, gan, model_dir, animecutepics):
 def training_loop(generator, discriminator, gan, model_dir, animecutepics):
     # Train the GAN
     print("Training...")
-    num_epochs = 10000
+    num_epochs = 1000
     batch_size = 64
     for epoch in tqdm(range(num_epochs)):
         idx = np.random.randint(0, animecutepics.shape[0], batch_size)
@@ -78,6 +77,7 @@ def training_loop(generator, discriminator, gan, model_dir, animecutepics):
             print("Epoch:", epoch + 1, "Discriminator Loss:", d_loss, "Accuracy:", d_acc, "Generator Loss:", g_loss)
             plt.imshow(fake_images[0, :, :, :])
             plt.savefig(os.path.join(generated, str(epoch)+".png"))
+            data_csv(epoch,d_loss,d_acc,g_loss)
             #plt.show()
         if (epoch + 1) % 50 == 0:
             # Save weights
@@ -92,7 +92,7 @@ def main():
     model_dir = 'models'
     # Load animu UWU images
     animecutepics = []
-    animecutepics_path = 'data/cropped28'
+    animecutepics_path = 'data/128x128'
     for filename in os.listdir(animecutepics_path):
         if filename.endswith(".jpg"):
             animecutepics.append(plt.imread(os.path.join(animecutepics_path, filename)))
@@ -124,10 +124,17 @@ def main():
     gan = tf.keras.Sequential([generator, discriminator])
     print("Compiling in progress...")
     gan.compile(optimizer=tf.keras.optimizers.Adam(1e-4), loss='binary_crossentropy')
+    training_loop(generator, discriminator, gan, model_dir , animecutepics)
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
         training_loop(generator, discriminator, gan, model_dir , animecutepics)
     else:
         resume_training(generator, discriminator, gan, model_dir, animecutepics)
-
+def data_csv(epoch, d_loss, d_acc, g_loss):
+    List = [epoch, d_loss, d_acc, g_loss]
+    with open('epoch_info.csv', 'a') as f_object:
+        writer_object = writer(f_object)
+        writer_object.writerow(List)
+        f_object.close()
+        
 main()
