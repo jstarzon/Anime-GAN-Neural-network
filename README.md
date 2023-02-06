@@ -5,6 +5,9 @@ Change this value in Anime-neural.py
 num_epochs = 100
 Higher value, better result. This value changes how much iterations training model does through dataset.
 
+
+Work in progress...
+
 ## What it does
 - Load pictures
 - Train model
