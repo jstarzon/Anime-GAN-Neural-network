@@ -6,10 +6,22 @@ from tqdm import tqdm
 from csv import writer
 import datetime
 
-
-
+#Current date
 now = datetime.datetime.now()
+#Folder for generated fake pictures
 generated='generated'
+
+def gpu():
+    # Check if an AMD GPU is available (i have AMD D: )
+    physical_devices = tf.config.list_physical_devices('GPU')
+    if len(physical_devices) > 0 and tf.test.is_gpu_available(cuda_only=False):
+        # Use the AMD GPU
+        tf.config.set_visible_devices(physical_devices[0], 'GPU')
+        tf.config.experimental.set_memory_growth(physical_devices[0], True)
+    else:
+        raise Exception("No AMD GPU found")
+    # Verify the GPU is being used
+    print("Using GPU:", tf.test.gpu_device_name())
 
 # Generator model
 def make_generator_model():
@@ -40,20 +52,16 @@ def make_discriminator_model():
     model.add(tf.keras.layers.Dropout(0.3))
     model.add(tf.keras.layers.Dense(1, activation="sigmoid"))
     model.compile(optimizer=tf.keras.optimizers.Adam(lr=0.0002, beta_1=0.5), loss='binary_crossentropy', metrics=['accuracy'])
-
     return model
 
 def define_gan(discriminator, generator):
-    # make weights in the discriminator not trainable
     discriminator.trainable = False
-    # connect them
     model = tf.keras.Sequential([generator, discriminator])
-    # compile model
     opt = tf.keras.optimizers.Adam(lr=0.0002, beta_1=0.5)
     model.compile(loss='binary_crossentropy', optimizer=opt)
     return model
 
-
+#Resume loop
 def resume_training(generator, discriminator, gan, model_dir, animecutepics):
     print("Resuming training from checkpoint:", model_dir)
     generator.load_weights(os.path.join(model_dir, 'generator_weights.h5'))
@@ -74,13 +82,10 @@ def training_loop(generator, discriminator, gan, model_dir, animecutepics):
         x = np.concatenate([real_images, fake_images])
         y = np.concatenate([np.ones((batch_size, 1)), np.zeros((batch_size, 1))])
         d_loss, d_acc = discriminator.train_on_batch(x, y)
-
         # Train the generator
         noise = np.random.normal(0, 1, (batch_size, 100))
         y = np.ones((batch_size, 1))
         g_loss = gan.train_on_batch(noise, y)
-
-        # losses
         if (epoch + 1) % 10 == 0:
             print("Epoch:", epoch + 1, "Discriminator Loss:", d_loss, "Accuracy:", d_acc, "Generator Loss:", g_loss)
             plt.imshow(fake_images[0, :, :, :])
@@ -89,15 +94,10 @@ def training_loop(generator, discriminator, gan, model_dir, animecutepics):
             #plt.show()
         if (epoch + 1) % 50 == 0:
             # Save weights
-
             generator.save_weights(os.path.join(model_dir, 'generator_weights.h5'))
             discriminator.save_weights(os.path.join(model_dir, 'discriminator_weights.h5'))
             gan.save_weights(os.path.join(model_dir, 'gan_weights.h5'))
-
-
-
 def main():
-    
     np.random.seed(42)
     tf.set_random_seed(42)
     model_dir = 'models'
@@ -111,48 +111,30 @@ def main():
             animecutepics.append(image)
             print("Loading the pic "+ filename)
     animecutepics = np.array(animecutepics)
-
     # Normalize images
     animecutepics = (animecutepics - 127.5) / 127.5
-
-
-    # Create the generator and discriminator models
-
-    print("Discriminator model DONE")
+    print("Generator compile DONE")
     generator = make_generator_model()
-    print("Discriminator model DONE")
+    print("Discriminator compile DONE")
     discriminator = make_discriminator_model()
-
-    # Compile the discriminator model
     print("Discriminator model compiling in progress...")
-    
-    # Combine the generator and discriminator into a GAN
     print("Combining.. GAN + Discriminator")
-    print("Compiling in progress...")
     gan = define_gan(discriminator,generator)
-    #training_loop(generator, discriminator, gan, model_dir , animecutepics)
+    print("Compiling in progress...")
+    # training_loop(generator, discriminator, gan, model_dir , animecutepics)
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
         training_loop(generator, discriminator, gan, model_dir , animecutepics)
     else:
         resume_training(generator, discriminator, gan, model_dir, animecutepics)
+        
+#CSV Telemetry 
 def data_csv(epoch, d_loss, d_acc, g_loss):
     List = [now.strftime("%m/%d/%Y, %H:%M:%S") , epoch, d_loss, d_acc, g_loss]
     with open('epoch_info.csv', 'a') as f_object:
         writer_object = writer(f_object)
         writer_object.writerow(List)
         f_object.close()
-def gpu():
-    # Check if an AMD GPU is available
-    physical_devices = tf.config.list_physical_devices('GPU')
-    if len(physical_devices) > 0 and tf.test.is_gpu_available(cuda_only=False):
-        # Use the AMD GPU
-        tf.config.set_visible_devices(physical_devices[0], 'GPU')
-        tf.config.experimental.set_memory_growth(physical_devices[0], True)
-    else:
-        raise Exception("No AMD GPU found")
-
-    # Verify the GPU is being used
-    print("Using GPU:", tf.test.gpu_device_name())
-
-main()
+        
+if __name__ == '__main__':
+    main()
