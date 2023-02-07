@@ -4,44 +4,54 @@ import os
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from csv import writer
-import cv2
+import datetime
 
+
+
+now = datetime.datetime.now()
 generated='generated'
 
 # Generator model
 def make_generator_model():
     print("Generator model in progress")
     model = tf.keras.Sequential()
-    model.add(tf.keras.layers.Dense(64 * 32 * 32, use_bias=False, input_shape=(100,)))
-    model.add(tf.keras.layers.BatchNormalization())
-    model.add(tf.keras.layers.LeakyReLU())
-    model.add(tf.keras.layers.Reshape((32, 32, 64)))
-    model.add(tf.keras.layers.Conv2DTranspose(64, (5, 5), strides=(1, 1), padding='same', use_bias=False))
-    model.add(tf.keras.layers.BatchNormalization())
-    model.add(tf.keras.layers.LeakyReLU())
-    model.add(tf.keras.layers.Conv2DTranspose(32, (5, 5), strides=(2, 2), padding='same', use_bias=False))
-    model.add(tf.keras.layers.BatchNormalization())
-    model.add(tf.keras.layers.LeakyReLU())
-    model.add(tf.keras.layers.Conv2DTranspose(3, (5, 5), strides=(2, 2), padding='same', use_bias=False, activation='tanh'))
+    model.add(tf.keras.layers.Dense(128 * 16 * 16, activation="relu", input_shape=(100, )))
+    model.add(tf.keras.layers.Reshape((16, 16, 128)))
+    model.add(tf.keras.layers.UpSampling2D())
+    model.add(tf.keras.layers.Conv2D(128, kernel_size=3, padding="same"))
+    model.add(tf.keras.layers.BatchNormalization(momentum=0.8))
+    model.add(tf.keras.layers.Activation("relu"))
+    model.add(tf.keras.layers.UpSampling2D())
+    model.add(tf.keras.layers.Conv2D(64, kernel_size=3, padding="same"))
+    model.add(tf.keras.layers.BatchNormalization(momentum=0.8))
+    model.add(tf.keras.layers.Activation("relu"))
+    model.add(tf.keras.layers.Conv2D(3, kernel_size=3, padding="same"))
+    model.add(tf.keras.layers.Activation("tanh"))
     return model
+
 # Discriminator model
 def make_discriminator_model():
     print("Discriminator model in progress")
     model = tf.keras.Sequential()
-    model.add(tf.keras.layers.Reshape((128 * 128 * 3,), input_shape=(128, 128, 3)))
-    model.add(tf.keras.layers.Dense(512, activation="relu"))
-    model.add(tf.keras.layers.Dropout(0.3))
+    model.add(tf.keras.layers.Reshape((64 * 64 * 3,), input_shape=(64, 64, 3)))
     model.add(tf.keras.layers.Dense(256, activation="relu"))
     model.add(tf.keras.layers.Dropout(0.3))
+    model.add(tf.keras.layers.Dense(128, activation="relu"))
+    model.add(tf.keras.layers.Dropout(0.3))
     model.add(tf.keras.layers.Dense(1, activation="sigmoid"))
-    model.add(tf.keras.layers.LeakyReLU())
-    model.add(tf.keras.layers.Dropout(0.3))
-    model.add(tf.keras.layers.LeakyReLU())
-    model.add(tf.keras.layers.Dropout(0.3))
-    model.add(tf.keras.layers.Flatten())
-    model.add(tf.keras.layers.Dense(1, activation='sigmoid'))
+    model.compile(optimizer=tf.keras.optimizers.Adam(lr=0.0002, beta_1=0.5), loss='binary_crossentropy', metrics=['accuracy'])
+
     return model
 
+def define_gan(discriminator, generator):
+    # make weights in the discriminator not trainable
+    discriminator.trainable = False
+    # connect them
+    model = tf.keras.Sequential([generator, discriminator])
+    # compile model
+    opt = tf.keras.optimizers.Adam(lr=0.0002, beta_1=0.5)
+    model.compile(loss='binary_crossentropy', optimizer=opt)
+    return model
 
 
 def resume_training(generator, discriminator, gan, model_dir, animecutepics):
@@ -49,15 +59,13 @@ def resume_training(generator, discriminator, gan, model_dir, animecutepics):
     generator.load_weights(os.path.join(model_dir, 'generator_weights.h5'))
     discriminator.load_weights(os.path.join(model_dir, 'discriminator_weights.h5'))
     gan.load_weights(os.path.join(model_dir, 'gan_weights.h5'))
-    discriminator.compile(optimizer=tf.keras.optimizers.Adam(1e-4), loss='binary_crossentropy', metrics=['accuracy'])
-    gan.compile(optimizer=tf.keras.optimizers.Adam(1e-4), loss='binary_crossentropy')
     training_loop(generator, discriminator, gan, model_dir, animecutepics)
 
 def training_loop(generator, discriminator, gan, model_dir, animecutepics):
     # Train the GAN
     print("Training...")
-    num_epochs = 1000
-    batch_size = 64
+    num_epochs = 10000
+    batch_size = 512
     for epoch in tqdm(range(num_epochs)):
         idx = np.random.randint(0, animecutepics.shape[0], batch_size)
         real_images = animecutepics[idx]
@@ -76,38 +84,38 @@ def training_loop(generator, discriminator, gan, model_dir, animecutepics):
         if (epoch + 1) % 10 == 0:
             print("Epoch:", epoch + 1, "Discriminator Loss:", d_loss, "Accuracy:", d_acc, "Generator Loss:", g_loss)
             plt.imshow(fake_images[0, :, :, :])
-            plt.savefig(os.path.join(generated, str(epoch)+".png"))
+            plt.savefig(os.path.join(generated, str(epoch)+now.strftime("%m%d%Y%H%M%S")+".png"))
             data_csv(epoch,d_loss,d_acc,g_loss)
             #plt.show()
         if (epoch + 1) % 50 == 0:
             # Save weights
+
             generator.save_weights(os.path.join(model_dir, 'generator_weights.h5'))
             discriminator.save_weights(os.path.join(model_dir, 'discriminator_weights.h5'))
             gan.save_weights(os.path.join(model_dir, 'gan_weights.h5'))
 
+
+
 def main():
     
     np.random.seed(42)
-    tf.random.set_seed(42)
+    tf.set_random_seed(42)
     model_dir = 'models'
     # Load animu UWU images
     animecutepics = []
-    animecutepics_path = 'data/128x128'
+    animecutepics_path = 'data/64x64'
     for filename in os.listdir(animecutepics_path):
         if filename.endswith(".jpg"):
-            animecutepics.append(plt.imread(os.path.join(animecutepics_path, filename)))
+            image = plt.imread(os.path.join(animecutepics_path, filename))
+            #grayscale_image = np.dot(image[..., :3], [0.2989, 0.5870, 0.1140])
+            animecutepics.append(image)
             print("Loading the pic "+ filename)
     animecutepics = np.array(animecutepics)
 
     # Normalize images
     animecutepics = (animecutepics - 127.5) / 127.5
-    # Generate the models
-    generator = make_generator_model()
-    discriminator = make_discriminator_model()
 
-    # Compile the models
-    g_optimizer = tf.keras.optimizers.Adam(1e-4)
-    d_optimizer = tf
+
     # Create the generator and discriminator models
 
     print("Discriminator model DONE")
@@ -117,24 +125,34 @@ def main():
 
     # Compile the discriminator model
     print("Discriminator model compiling in progress...")
-    discriminator.compile(optimizer=tf.keras.optimizers.Adam(1e-4), loss='binary_crossentropy', metrics=['accuracy'])
-
+    
     # Combine the generator and discriminator into a GAN
     print("Combining.. GAN + Discriminator")
-    gan = tf.keras.Sequential([generator, discriminator])
     print("Compiling in progress...")
-    gan.compile(optimizer=tf.keras.optimizers.Adam(1e-4), loss='binary_crossentropy')
-    training_loop(generator, discriminator, gan, model_dir , animecutepics)
+    gan = define_gan(discriminator,generator)
+    #training_loop(generator, discriminator, gan, model_dir , animecutepics)
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
         training_loop(generator, discriminator, gan, model_dir , animecutepics)
     else:
         resume_training(generator, discriminator, gan, model_dir, animecutepics)
 def data_csv(epoch, d_loss, d_acc, g_loss):
-    List = [epoch, d_loss, d_acc, g_loss]
+    List = [now.strftime("%m/%d/%Y, %H:%M:%S") , epoch, d_loss, d_acc, g_loss]
     with open('epoch_info.csv', 'a') as f_object:
         writer_object = writer(f_object)
         writer_object.writerow(List)
         f_object.close()
-        
+def gpu():
+    # Check if an AMD GPU is available
+    physical_devices = tf.config.list_physical_devices('GPU')
+    if len(physical_devices) > 0 and tf.test.is_gpu_available(cuda_only=False):
+        # Use the AMD GPU
+        tf.config.set_visible_devices(physical_devices[0], 'GPU')
+        tf.config.experimental.set_memory_growth(physical_devices[0], True)
+    else:
+        raise Exception("No AMD GPU found")
+
+    # Verify the GPU is being used
+    print("Using GPU:", tf.test.gpu_device_name())
+
 main()
