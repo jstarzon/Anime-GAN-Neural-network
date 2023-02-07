@@ -1,4 +1,4 @@
-# ANIME-neural
+# ANIME-GAN NEURAL NETWORK
 just quick test of my neural network 
 
 Change this value in Anime-neural.py
