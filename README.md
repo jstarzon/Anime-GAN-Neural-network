@@ -12,7 +12,7 @@ Work in progress...
 - Load pictures dataset
 - Train model 
 - Saves trained model into .h5 file
-- Saves generater pictures into a folder
+- Saves generated pictures into a folder
 - Saves telemetry for each epoch in .csv file
 - Resume training
 
