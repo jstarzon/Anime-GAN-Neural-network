@@ -16,5 +16,4 @@ Work in progress...
 - Saves telemetry for each epoch in .csv file
 - Resume training
 
-You can put any pictures you want but I decided to put every anime character that exist. 
-Thats why I named it ANIME-Neural-Network :)
+You can put any dataset to train. I decided to use anime pictures.
